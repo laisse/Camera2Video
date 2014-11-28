@@ -20,13 +20,15 @@ import android.media.MediaMuxer;
 import android.os.Environment;
 import android.util.Log;
 
+import android.media.MediaCodecInfo.CodecCapabilities;
+
 public class VideoEncoderFromBuffer {
     private static final String TAG = "VideoEncoderFromBuffer";
     private static final boolean VERBOSE = true; // lots of logging
     private static final String DEBUG_FILE_NAME_BASE = "/sdcard/Movies/h264";
     // parameters for the encoder
     private static final String MIME_TYPE = "video/avc"; // H.264 Advanced Video
-    private static final int FRAME_RATE = 25; // 15fps
+    private static final int FRAME_RATE = 30; // 15fps
     private static final int IFRAME_INTERVAL = FRAME_RATE; // 10 between
                                                            // I-frames
     private static final int TIMEOUT_USEC = 10000;
@@ -63,6 +65,10 @@ public class VideoEncoderFromBuffer {
         if (VERBOSE)
             Log.d(TAG, "found codec: " + codecInfo.getName());
         mColorFormat = selectColorFormat(codecInfo, MIME_TYPE);
+        //mColorFormat = MediaCodecInfo.CodecCapabilities.COLOR_QCOM_FormatYUV420SemiPlanar;
+        //mColorFormat = 0x7FA30C04;
+        //mColorFormat = -1225236480;
+        //mColorFormat = 0x7F000789;
         if (VERBOSE)
             Log.d(TAG, "found colorFormat: " + mColorFormat);
         MediaFormat mediaFormat = MediaFormat.createVideoFormat(MIME_TYPE,
@@ -110,12 +116,14 @@ public class VideoEncoderFromBuffer {
         }
         mTrackIndex = -1;
         mMuxerStarted = false;
+        getSupportColorFormat();
     }
 
     public void encodeFrame(byte[] input/* , byte[] output */) {
         Log.i(TAG, "encodeFrame()");
         long encodedSize = 0;
         NV21toI420SemiPlanar(input, mFrameData, this.mWidth, this.mHeight);
+        //System.arraycopy(input, 0, mFrameData, 0, input.length);
 
         ByteBuffer[] inputBuffers = mMediaCodec.getInputBuffers();
         ByteBuffer[] outputBuffers = mMediaCodec.getOutputBuffers();
@@ -345,5 +353,75 @@ public class VideoEncoderFromBuffer {
             default:
                 throw new RuntimeException("unknown format " + colorFormat);
         }
+    }
+
+    private void getSupportColorFormat()
+    {
+        int numCodecs = MediaCodecList.getCodecCount();
+        MediaCodecInfo codecInfo = null;
+        for (int i = 0; i < numCodecs && codecInfo == null; i++)
+        {
+            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
+            if (!info.isEncoder())
+            {
+                continue;
+            }
+            String[] types = info.getSupportedTypes();
+            boolean found = false;
+            for (int j = 0; j < types.length && !found; j++)
+            {
+                if (types[j].equals("video/avc"))
+                {
+                    System.out.println("found");
+                    found = true;
+                }
+            }
+            if (!found)
+                continue;
+            codecInfo = info;
+        }
+        Log.d(TAG, "Found " + codecInfo.getName() + " supporting "
+                + "video/avc");
+
+        // Find a color profile that the codec supports
+        int colorFormat = 0;
+        MediaCodecInfo.CodecCapabilities capabilities = codecInfo
+                .getCapabilitiesForType("video/avc");
+        System.out.println("length-" + capabilities.colorFormats.length + "=="
+                + Arrays.toString(capabilities.colorFormats));
+        for (int i = 0; i < capabilities.colorFormats.length
+                && colorFormat == 0; i++)
+        {
+            int format = capabilities.colorFormats[i];
+            switch (format)
+            {
+                case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
+                    System.out.println("-COLOR_FormatYUV420Planar-" + format);
+                    break;
+                case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedPlanar:
+                    System.out.println("-COLOR_FormatYUV420PackedPlanar-" + format);
+                    break;
+                case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
+                    System.out.println("-COLOR_FormatYUV420SemiPlanar-" + format);
+                    break;
+                case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedSemiPlanar:
+                    System.out.println("-COLOR_FormatYUV420PackedSemiPlanar-" + format);
+                    break;
+                case MediaCodecInfo.CodecCapabilities.COLOR_TI_FormatYUV420PackedSemiPlanar:
+                    colorFormat = format;
+                    System.out.println("-COLOR_TI_FormatYUV420PackedSemiPlanar-" + format);
+                    break;
+                case CodecCapabilities.COLOR_QCOM_FormatYUV420SemiPlanar:
+                    System.out.println("-COLOR_QCOM_FormatYUV420SemiPlanar-" + format);
+                    break;
+                case CodecCapabilities.COLOR_FormatSurface:
+                    System.out.println("-COLOR_FormatSurface-" + format);
+                    break;
+                default:
+                    Log.d(TAG, "Skipping unsupported color format " + format);
+                    break;
+            }
+        }
+        Log.d(TAG, "Using color format " + colorFormat);
     }
 }

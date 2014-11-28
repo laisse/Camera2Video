@@ -99,6 +99,18 @@ public class CameraWrapper {
             this.mCameraParamters.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
             this.mCameraParamters.setPreviewSize(IMAGE_WIDTH, IMAGE_HEIGHT);
             this.mCamera.setDisplayOrientation(90);
+
+            List<int[]> range = this.mCameraParamters.getSupportedPreviewFpsRange();
+            Log.d(TAG, "range:" + range.size());
+            for (int j = 0; j < range.size(); j++) {
+                int[] r = range.get(j);
+                for (int k = 0; k < r.length; k++) {
+                    Log.d(TAG, TAG + r[k]);
+                }
+            }
+
+            this.mCameraParamters.setPreviewFpsRange(30000, 30000);
+
             mCameraPreviewCallback = new CameraPreviewCallback();
             mCamera.addCallbackBuffer(mImageCallbackBuffer);
             mCamera.setPreviewCallbackWithBuffer(mCameraPreviewCallback);
@@ -133,6 +145,7 @@ public class CameraWrapper {
             Log.i(TAG, "onPreviewFrame");
             Log.i(TAG, "onPreviewFrame data.length = " + data.length);
             long startTime = System.currentTimeMillis();
+            //YuvImage image = new YuvImage(data, ImageFormat.NV21, w, h, null);
             videoEncoder.encodeFrame(data/* , encodeData */);
             long endTime = System.currentTimeMillis();
             Log.i(TAG, Integer.toString((int) (endTime - startTime)) + "ms");
