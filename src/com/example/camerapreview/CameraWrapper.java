@@ -20,8 +20,9 @@ public class CameraWrapper {
     public static final int IMAGE_HEIGHT = 1080;
     public static final int IMAGE_WIDTH = 1920;
     private CameraPreviewCallback mCameraPreviewCallback;
-    private byte[] mImageCallbackBuffer = new byte[CameraWrapper.IMAGE_WIDTH
-            * CameraWrapper.IMAGE_HEIGHT * 3 / 2];
+
+    //private byte[] mImageCallbackBuffer = new byte[CameraWrapper.IMAGE_WIDTH
+    //        * CameraWrapper.IMAGE_HEIGHT * 3 / 2];
 
     public SurfaceTexture mSurfaceTexture;
 
@@ -112,7 +113,7 @@ public class CameraWrapper {
             this.mCameraParamters.setPreviewFpsRange(30000, 30000);
 
             mCameraPreviewCallback = new CameraPreviewCallback();
-            mCamera.addCallbackBuffer(mImageCallbackBuffer);
+            mCamera.addCallbackBuffer(mCameraPreviewCallback.videoEncoder.writeBuffer());
             mCamera.setPreviewCallbackWithBuffer(mCameraPreviewCallback);
             // mCamera.setPreviewCallback(mCameraPreviewCallback);
             List<String> focusModes = this.mCameraParamters.getSupportedFocusModes();
@@ -145,11 +146,12 @@ public class CameraWrapper {
             Log.i(TAG, "onPreviewFrame");
             Log.i(TAG, "onPreviewFrame data.length = " + data.length);
             long startTime = System.currentTimeMillis();
-            //YuvImage image = new YuvImage(data, ImageFormat.NV21, w, h, null);
+            mCameraPreviewCallback.videoEncoder.swapBuffers();
+            camera.addCallbackBuffer(mCameraPreviewCallback.videoEncoder.writeBuffer());
             videoEncoder.encodeFrame(data/* , encodeData */);
             long endTime = System.currentTimeMillis();
             Log.i(TAG, Integer.toString((int) (endTime - startTime)) + "ms");
-            camera.addCallbackBuffer(data);
+            //camera.addCallbackBuffer(data);
         }
     }
 }
